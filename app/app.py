@@ -23,9 +23,16 @@ def init_cassandra():
             doc_length int
         )
     """)
+    session.execute("""
+        CREATE TABLE IF NOT EXISTS term_stats (
+            term text PRIMARY KEY,
+            doc_count int,
+            idf double
+        )
+    """)
     return session
 
-def read_hdfs_output(hdfs_path="/tmp/index/output1"):
+def read_hdfs_output(hdfs_path):
     result = subprocess.run(
         ["hdfs", "dfs", "-cat", f"{hdfs_path}/part-*"],
         stdout=subprocess.PIPE,
@@ -34,10 +41,7 @@ def read_hdfs_output(hdfs_path="/tmp/index/output1"):
     )
     return result.stdout.splitlines()
 
-def main():
-    session = init_cassandra()
-    lines = read_hdfs_output()
-
+def process_stage1_output(session, lines):
     for line in lines:
         parts = line.strip().split("\t")
         if len(parts) != 2:
@@ -60,6 +64,31 @@ def main():
                 )
             except ValueError:
                 continue
+
+def process_stage2_output(session, lines):
+    for line in lines:
+        parts = line.strip().split("\t")
+        if len(parts) != 3:
+            continue
+        
+        term, doc_count, idf = parts
+        session.execute(
+            "INSERT INTO term_stats (term, doc_count, idf) VALUES (%s, %s, %s)",
+            (term, int(doc_count), float(idf))
+        )
+
+def main():
+    session = init_cassandra()
+    
+    print("Processing stage 1 output...")
+    stage1_lines = read_hdfs_output("/tmp/index/output1")
+    process_stage1_output(session, stage1_lines)
+    
+    print("Processing stage 2 output...")
+    stage2_lines = read_hdfs_output("/tmp/index/output2")
+    process_stage2_output(session, stage2_lines)
+    
+    print("Indexing complete!")
 
 if __name__ == "__main__":
     main()
