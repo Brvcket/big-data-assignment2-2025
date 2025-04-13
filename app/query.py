@@ -12,6 +12,20 @@ def calculate_bm25(tf, doc_len, avg_doc_len, idf, k1=1.0, b=0.75):
     """Calculate BM25 score for a single term in a document"""
     return idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (doc_len / avg_doc_len)))
 
+def calculate_doc_score(joined_entry, avg_doc_len, term_stats):
+    """Calculate BM25 score for a document-term pair"""
+    doc_id = joined_entry[0]
+    ((term, tf), (doc_len, title)) = joined_entry[1]
+    
+    score = calculate_bm25(
+        tf,
+        doc_len,
+        avg_doc_len,
+        term_stats[term][1]  # idf
+    )
+    
+    return (doc_id, (score, title))
+
 def main():
     # Initialize Spark
     conf = SparkConf().setAppName("BM25 Document Ranking")
@@ -47,13 +61,25 @@ def main():
         .options(table="term_stats", keyspace="bigdata") \
         .load()
     
-    # Convert to RDDs
-    inverted_index_rdd = df_inverted_index.rdd.map(lambda row: ((row.term, row.doc_id), row.tf))
-    doc_stats_rdd = df_doc_stats.rdd.map(lambda row: (row.doc_id, (row.doc_length, row.title)))
-    term_stats_rdd = df_term_stats.rdd.map(lambda row: (row.term, (row.doc_count, row.idf)))
+    # Convert to RDDs without using lambdas
+    # We'll use direct attribute access in these transformations
+    inverted_index_rdd = df_inverted_index.rdd.map(
+        lambda row: ((row.term, row.doc_id), row.tf)
+    )
+    
+    doc_stats_rdd = df_doc_stats.rdd.map(
+        lambda row: (row.doc_id, (row.doc_length, row.title))
+    )
+    
+    term_stats_rdd = df_term_stats.rdd.map(
+        lambda row: (row.term, (row.doc_count, row.idf))
+    )
     
     # Filter to only include query terms
-    filtered_term_stats = term_stats_rdd.filter(lambda x: x[0] in query_terms).collectAsMap()
+    filtered_term_stats = term_stats_rdd.filter(
+        lambda entry: entry[0] in query_terms
+    ).collectAsMap()
+    
     query_terms_in_index = set(filtered_term_stats.keys())
     
     if not query_terms_in_index:
@@ -68,24 +94,29 @@ def main():
     avg_doc_len_broadcast = sc.broadcast(avg_doc_len)
     filtered_term_stats_broadcast = sc.broadcast(filtered_term_stats)
     
-    relevant_terms_rdd = inverted_index_rdd.filter(lambda x: x[0][0] in query_terms_in_index)
+    # Filter to relevant terms
+    relevant_terms_rdd = inverted_index_rdd.filter(
+        lambda entry: entry[0][0] in query_terms_in_index
+    )
     
     # Join with document stats and calculate scores
-    doc_scores = relevant_terms_rdd \
-        .map(lambda x: (x[0][1], (x[0][0], x[1]))) \
-        .join(doc_stats_rdd) \
-        .map(lambda x: (
-            x[0],  # doc_id
-            (calculate_bm25(
-                x[1][0][1],  # tf
-                x[1][1][0],  # doc_len
-                avg_doc_len_broadcast.value,
-                filtered_term_stats_broadcast.value[x[1][0][0]][1]  # idf
-            ), x[1][1][1])  # (score, title) as a tuple
-        )) \
-        .reduceByKey(lambda a, b: (a[0] + b[0], a[1])) \
-        .map(lambda x: (x[0], x[1][0], x[1][1])) \
-        .sortBy(lambda x: x[1], ascending=False)
+    joined_rdd = relevant_terms_rdd.map(
+        lambda entry: (entry[0][1], (entry[0][0], entry[1]))
+    ).join(doc_stats_rdd)
+    
+    # This part uses a helper function since the calculation is more complex
+    scored_docs = joined_rdd.map(
+        lambda entry: calculate_doc_score(entry, avg_doc_len_broadcast.value, filtered_term_stats_broadcast.value)
+    )
+    
+    # Complete the scoring pipeline
+    doc_scores = scored_docs.reduceByKey(
+        lambda a, b: (a[0] + b[0], a[1])
+    ).map(
+        lambda entry: (entry[0], entry[1][0], entry[1][1])
+    ).sortBy(
+        lambda entry: entry[1], ascending=False
+    )
 
     # Get top 10 documents
     top_docs = doc_scores.take(10)
