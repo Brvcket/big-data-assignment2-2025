@@ -13,7 +13,7 @@ title = row['title'].encode('ascii', 'ignore').decode('ascii')
 title = re.sub(r'[^a-zA-Z0-9_\-.]', '_', title)
 ```
 
-Using prepare_data.py provided by Firas Jolha, I faced the problem: many of titles contain non-ascii symbols, so I decided to substitude them ![alt text](image.png)
+Using prepare_data.py provided by Firas Jolha, I faced the problem: many of titles contain non-ascii symbols, so I decided to substitude them ![alt text](images_for_report/image.png)
 
 ### Two-Stage MapReduce Indexing
 1. **First Stage**: Tokenizes documents, counts term frequencies, outputs document lengths
