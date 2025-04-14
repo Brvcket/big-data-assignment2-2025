@@ -56,12 +56,14 @@ def read_document_titles(hdfs_documents_path="/data"):
             encoding="utf-8",
             check=True
         )
+
+        print(f"LENGTH: {len(result.stdout.splitlines())}")
         
         # Process each document file
         for line in result.stdout.splitlines():
             parts = line.strip().split()
-            if len(parts) < 8:  # Skip headers or invalid lines
-                continue
+            # if len(parts) < 8:  # Skip headers or invalid lines
+            #     continue
                 
             file_path = parts[-1]  # Last part is the file path
             if not file_path.endswith(".txt"):

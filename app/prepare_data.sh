@@ -2,7 +2,8 @@
 
 source .venv/bin/activate
 
-# export PYSPARK_SUBMIT_ARGS="--driver-memory 24g --executor-memory 8g pyspark-shell"
+# uncomment in case of some issues regarding the java heap size and garbage collector
+export PYSPARK_SUBMIT_ARGS="--driver-memory 16g --executor-memory 8g pyspark-shell"
 
 # Python of the driver (/app/.venv/bin/python)
 export PYSPARK_DRIVER_PYTHON=$(which python) 

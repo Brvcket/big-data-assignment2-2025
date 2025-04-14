@@ -23,3 +23,4 @@ bash index.sh /index/data
 
 # Run the ranker
 bash search.sh "this is a query!"
+bash search.sh "good morning"

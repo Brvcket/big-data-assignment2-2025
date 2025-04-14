@@ -18,7 +18,7 @@ hadoop jar $HADOOP_STREAMING_JAR \
   -input "$INPUT" \
   -output /tmp/index/output1
 
-echo "Running indexing stage 2 (document frequency calculation)"
+echo "Running indexing stage 2"
 
 hadoop jar $HADOOP_STREAMING_JAR \
   -files mapreduce/mapper2.py,mapreduce/reducer2.py \
@@ -27,5 +27,5 @@ hadoop jar $HADOOP_STREAMING_JAR \
   -input "/tmp/index/output1" \
   -output /tmp/index/output2
 
-echo "Writing results to Cassandra..."
+echo "Writing results to Cassandra"
 python3 app.py

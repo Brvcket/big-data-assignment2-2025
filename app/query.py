@@ -40,7 +40,6 @@ def main():
     query = " ".join(sys.argv[1:])
     print(f"Searching for: {query}")
     
-    # Tokenize query
     query_terms = tokenize(query)
     
     if not query_terms:
@@ -61,8 +60,6 @@ def main():
         .options(table="term_stats", keyspace="bigdata") \
         .load()
     
-    # Convert to RDDs without using lambdas
-    # We'll use direct attribute access in these transformations
     inverted_index_rdd = df_inverted_index.rdd.map(
         lambda row: ((row.term, row.doc_id), row.tf)
     )
@@ -75,7 +72,6 @@ def main():
         lambda row: (row.term, (row.doc_count, row.idf))
     )
     
-    # Filter to only include query terms
     filtered_term_stats = term_stats_rdd.filter(
         lambda entry: entry[0] in query_terms
     ).collectAsMap()
@@ -104,7 +100,6 @@ def main():
         lambda entry: (entry[0][1], (entry[0][0], entry[1]))
     ).join(doc_stats_rdd)
     
-    # This part uses a helper function since the calculation is more complex
     scored_docs = joined_rdd.map(
         lambda entry: calculate_doc_score(entry, avg_doc_len_broadcast.value, filtered_term_stats_broadcast.value)
     )
