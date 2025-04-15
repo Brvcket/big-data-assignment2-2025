@@ -3,6 +3,7 @@
 ## Methodology
 
 ### Data Preparation
+The script samples 1000 documents, normalizes their titles, creates text files in a local directory, and writes the dataset to HDFS for MapReduce processing
 ```python
 # Normalize document text and create files
 def normalize_text(text):
@@ -33,8 +34,30 @@ Using prepare_data.py provided by Firas Jolha, I faced the problem: many of titl
 ### Cassandra Storage
 The system uses three Cassandra tables to store the index:
 - `inverted_index`: Maps terms to documents with term frequency
-- `doc_stats`: Stores document metadata (length, title)
-- `term_stats`: Contains corpus statistics (doc_count and idf)
+  ```sql
+  CREATE TABLE IF NOT EXISTS inverted_index (
+    term text,
+    doc_id text,
+    tf int,
+    PRIMARY KEY (term, doc_id)
+  )
+  ```
+- `doc_stats`: Stores document metadata
+  ```sql
+  CREATE TABLE IF NOT EXISTS doc_stats (
+    doc_id text PRIMARY KEY,
+    doc_length int,
+    title text
+  )
+  ```
+- `term_stats`: Contains corpus statistics
+  ```sql
+  CREATE TABLE IF NOT EXISTS term_stats (
+    term text PRIMARY KEY,
+    doc_count int,
+    idf double
+  )
+  ```
 
 ### BM25 Search Algorithm
 ```python
