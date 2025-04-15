@@ -1,4 +1,4 @@
-# Big Data Search Engine Implementation
+# Innopolis University Big Data course - Assignment 2 : Simple Search Engine using Hadoop MapReduce
 
 ## Methodology
 
